@@ -1,0 +1,70 @@
+name: Deniz Gizem Rotam V10.2 SON APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main", "master", "ana" ]
+    paths:
+      - "deniz_gizem_rotam_v10_2_bolge_yemek_fix.zip"
+      - ".github/workflows/android-apk-v10-2-son.yml"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Depoyu al
+        uses: actions/checkout@v4
+
+      - name: V10.2 kaynak paketini hazırla
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZIP_FILE="deniz_gizem_rotam_v10_2_bolge_yemek_fix.zip"
+          if [ ! -f "$ZIP_FILE" ]; then
+            echo "HATA: Ana klasörde $ZIP_FILE bulunamadı."
+            ls -la
+            exit 1
+          fi
+          rm -rf project
+          mkdir -p project
+          unzip -q "$ZIP_FILE" -d project
+          test -f project/app/build.gradle
+          test -f project/app/src/main/java/com/denizgizem/rotam/MainActivity.java
+          test -f project/app/src/main/java/com/denizgizem/rotam/RankingEngine.java
+          grep -Fq "V10.2" project/app/src/main/java/com/denizgizem/rotam/MainActivity.java
+          grep -Fq '"kofteci yusuf"' project/app/src/main/java/com/denizgizem/rotam/RankingEngine.java
+          echo "V10.2 kaynak paketi doğrulandı."
+
+      - name: JDK 17 kur
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Android SDK komutlarını kur
+        uses: android-actions/setup-android@v4
+
+      - name: Android SDK 35 hazırla
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Gradle 8.7 kur
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: İmzalı V10.2 APK oluştur
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle -p project clean assembleRelease --no-daemon --stacktrace
+
+      - name: APK dosyasını yükle
+        uses: actions/upload-artifact@v4
+        with:
+          name: DenizGizemRotam-V10-2-SON-APK
+          path: project/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
