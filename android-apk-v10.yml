@@ -1,0 +1,59 @@
+name: Deniz Gizem Rotam V10 APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main", "master", "ana" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Depoyu al
+        uses: actions/checkout@v4
+
+      - name: V10 paketini doğrula
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f deniz_gizem_rotam_v10_guncel.zip
+          rm -rf project
+          mkdir project
+          unzip -q deniz_gizem_rotam_v10_guncel.zip -d project
+          grep -R "V10 • UYGULAMA İÇİ SONUÇ" project/app/src/main/java/com/denizgizem/rotam/MainActivity.java
+          if grep -RInE "ACTION_VIEW|startActivity\(|google\.com/search|maps\.google|geo:|yandex|waze|WebView|CustomTabs" project/app/src/main/java project/app/src/main/res; then
+            echo "Harici yönlendirme kodu bulundu; derleme durduruldu."
+            exit 1
+          fi
+
+      - name: JDK 17 kur
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Gradle 8.7 kur
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Android SDK 35 hazırla
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: İmzalı V10 APK oluştur
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd project
+          gradle assembleRelease --stacktrace --no-daemon
+
+      - name: APK dosyasını yükle
+        uses: actions/upload-artifact@v4
+        with:
+          name: DenizGizemRotam-V10-Uygulama-Ici-APK
+          path: project/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
