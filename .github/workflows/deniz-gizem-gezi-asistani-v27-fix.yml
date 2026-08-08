@@ -1,0 +1,78 @@
+name: Deniz Gizem Gezi Asistani V27 FIX APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main", "master", "ana" ]
+    paths:
+      - "*gezi*asistani*v27*.zip"
+      - ".github/workflows/deniz-gizem-gezi-asistani-v27-fix.yml"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Depoyu al
+        uses: actions/checkout@v4
+
+      - name: JDK 17 kur
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Android SDK kur
+        uses: android-actions/setup-android@v4
+
+      - name: Android SDK 34 hazirla
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+
+      - name: Gradle 8.7 kur
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Debug imza anahtarini koru
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: deniz-gizem-gezi-asistani-debug-key-v1
+
+      - name: V27 kaynak paketini ac
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZIP_FILE="$(find . -maxdepth 1 -type f \( -iname '*gezi*asistani*v27*.zip' -o -iname '*gezi*asistan*v27*.zip' \) | head -n 1)"
+          if [ -z "$ZIP_FILE" ]; then
+            echo "V27 ZIP dosyasi repo ana dizininde bulunamadi."
+            echo "Ana dizindeki ZIP dosyalari:"
+            find . -maxdepth 1 -type f -iname '*.zip' -print
+            exit 1
+          fi
+          echo "Bulunan V27 paketi: $ZIP_FILE"
+          rm -rf project
+          mkdir -p project
+          unzip -q "$ZIP_FILE" -d project
+          test -f project/app/build.gradle.kts
+          test -f project/app/src/main/java/com/altayaytin/denizgizemrotam/MainActivity.kt
+          grep -Fq 'versionCode = 30' project/app/build.gradle.kts
+          grep -Fq 'versionName = "27.0-gezi-asistani"' project/app/build.gradle.kts
+          grep -Fq '10 günlük rota yok' project/app/src/main/java/com/altayaytin/denizgizemrotam/MainActivity.kt
+          grep -Fq 'searchGeneralSights' project/app/src/main/java/com/altayaytin/denizgizemrotam/ApiService.kt
+
+      - name: APK olustur
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle -p project clean assembleDebug --no-daemon --stacktrace
+
+      - name: APK dosyasini yukle
+        uses: actions/upload-artifact@v4
+        with:
+          name: DenizGizem-Gezi-Asistani-V27-FIX-APK
+          path: project/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
